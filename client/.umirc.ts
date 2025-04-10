@@ -11,6 +11,7 @@ export default defineConfig({
   },
   routes: [
     { path: '/', component: '@/pages/index', layout:false },
+    { path: '/voters', component: '@/pages/VoteListPage', layout:false },
   ],
   npmClient: 'pnpm',
   proxy: {

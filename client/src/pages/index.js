@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useModel } from 'umi';
-import { Card, Radio, Input, Button, List, Typography, Divider, Space, Progress, Spin, Tabs, Popconfirm, message } from 'antd';
-import { DeleteOutlined, HistoryOutlined } from '@ant-design/icons';
+import { useModel, history } from 'umi'; // 引入 history
+import { Card, Radio, Input, Button, List, Typography, Divider, Space, Progress, Spin, Tabs, Popconfirm, message, Descriptions } from 'antd';
+import { DeleteOutlined, HistoryOutlined, UnorderedListOutlined } from '@ant-design/icons'; // 引入列表图标
 import styles from './index.less';
 
 const { Title, Text } = Typography;
@@ -23,7 +23,7 @@ export default function IndexPage() {
   } = useModel('vote');
   
   const [newOption, setNewOption] = useState('');
-  const [selectedOption, setSelectedOption] = useState(userVote || '');
+  const [selectedOption, setSelectedOption] = useState(userVote?.option || '');
   const [activeTab, setActiveTab] = useState('1');
   const [historyLoading, setHistoryLoading] = useState(false);
 
@@ -52,6 +52,9 @@ export default function IndexPage() {
     setNewOption('');
   };
 
+  const handleViewVoters = () => {
+    history.push('/voters'); // 跳转到投票者列表页面
+  };
   const handleVote = () => {
     if (!selectedOption) {
       message.warning('请选择一个选项');
@@ -106,6 +109,20 @@ export default function IndexPage() {
               </List.Item>
             )}
           />
+          {userVote && (
+            <div className={styles.voterInfo}>
+              <Divider>您的投票信息</Divider>
+              <Descriptions column={1} bordered>
+                <Descriptions.Item label="您的选择">{userVote.option}</Descriptions.Item>
+                <Descriptions.Item label="IP 地址">{userVote.ip}</Descriptions.Item>
+                <Descriptions.Item label="投票时间">{new Date(userVote.timestamp).toLocaleString()}</Descriptions.Item>
+                <Descriptions.Item label="浏览器">{userVote.browser}</Descriptions.Item>
+                <Descriptions.Item label="操作系统">{userVote.os}</Descriptions.Item>
+                <Descriptions.Item label="设备">{userVote.device}</Descriptions.Item>
+                <Descriptions.Item label="User-Agent">{userVote.ua}</Descriptions.Item>
+              </Descriptions>
+            </div>
+          )}
           <Text type="secondary" className={styles.thankYou}>
             感谢您的参与！
           </Text>
@@ -234,12 +251,20 @@ export default function IndexPage() {
       )}
     </div>
   );
-
   return (
     <div className={styles.container}>
       <Card className={styles.card}>
-        <Title level={2} className={styles.title}>下午茶投票</Title>
-        
+      <div className={styles.header}>
+          <Title level={2} className={styles.title}>下午茶投票</Title>
+          <Button 
+            type="link" 
+            icon={<UnorderedListOutlined />} 
+            onClick={handleViewVoters}
+            className={styles.viewVotersButton}
+          >
+            查看投票列表
+          </Button>
+        </div>
         <Tabs 
           activeKey={activeTab} 
           onChange={setActiveTab}

@@ -6,7 +6,7 @@ export default () => {
   const [options, setOptions] = useState([]);
   const [votes, setVotes] = useState({});
   const [hasVoted, setHasVoted] = useState(false);
-  const [userVote, setUserVote] = useState(null);
+  const [userVote, setUserVote] = useState(null); // 包含投票人详细信息
   const [loading, setLoading] = useState(true);
   const [voteHistory, setVoteHistory] = useState([]);
   const [ws, setWs] = useState(null);
@@ -22,20 +22,20 @@ export default () => {
 
     websocket.onmessage = (event) => {
       const { type, data, message: errorMessage } = JSON.parse(event.data);
-      console.log('收到 WebSocket 消息:', { type, data }); // 调试日志
+      console.log('收到 WebSocket 消息:', { type, data });
       switch (type) {
         case 'init':
           setOptions(data.options);
           setVotes(data.votes);
           setHasVoted(data.hasVoted);
-          setUserVote(data.userVote);
+          setUserVote(data.userVote); // 存储完整的 userVote 对象
           break;
         case 'voteUpdate':
           setOptions(data.options);
           setVotes(data.votes);
-          if (data.hasVoted !== undefined) { // 投票成功的消息包含 hasVoted
+          if (data.hasVoted !== undefined) {
             setHasVoted(data.hasVoted);
-            setUserVote(data.userVote);
+            setUserVote(data.userVote); // 更新投票人信息
           }
           break;
         case 'error':

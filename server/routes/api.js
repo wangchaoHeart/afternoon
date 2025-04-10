@@ -5,6 +5,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const moment = require('moment');
 const { v4: uuidv4 } = require('uuid');
+const uaParser = require('ua-parser-js'); // 添加用户代理解析库
 
 // 文件存储路径
 const DATA_DIR = path.join(__dirname, '../data');
@@ -160,17 +161,17 @@ const generateUserId = (req, res, next) => {
 router.use(generateUserId);
 
 // 创建 WebSocket 服务器
+// 创建 WebSocket 服务器
 const setupWebSocket = (server) => {
   const wss = new WebSocketServer({ server });
 
   wss.on('connection', (ws, req) => {
     clients.add(ws);
 
-    // 发送初始投票数据
     readVoteData().then(voteData => {
       const userId = req.headers.cookie?.match(/userId=([^;]+)/)?.[1];
       const hasVoted = voteData.votedUsers.includes(userId);
-      const userVote = hasVoted ? voteData.userVotes[userId]?.option : null;
+      const userVote = hasVoted ? voteData.userVotes[userId] : null;
 
       ws.send(JSON.stringify({
         type: 'init',
@@ -179,7 +180,7 @@ const setupWebSocket = (server) => {
           options: voteData.options,
           votes: voteData.votes,
           hasVoted,
-          userVote
+          userVote: userVote ? { option: userVote.option, ...userVote } : null
         }
       }));
     });
@@ -212,29 +213,32 @@ const setupWebSocket = (server) => {
               return;
             }
             const hasVoted = voteData.votedUsers.includes(userId);
+            const ua = uaParser(req.headers['user-agent']); // 解析 User-Agent
+            const voterInfo = {
+              option: data.option,
+              ip: req.socket.remoteAddress,
+              timestamp: moment().toISOString(),
+              browser: ua.browser.name + ' ' + ua.browser.version,
+              os: ua.os.name + ' ' + ua.os.version,
+              device: ua.device.model || 'Unknown',
+              ua: req.headers['user-agent']
+            };
+
             if (hasVoted) {
               const previousOption = voteData.userVotes[userId].option;
               if (previousOption !== data.option) {
                 voteData.votes[previousOption] -= 1;
                 voteData.votes[data.option] += 1;
-                voteData.userVotes[userId] = {
-                  option: data.option,
-                  ip: req.socket.remoteAddress,
-                  timestamp: moment().toISOString()
-                };
+                voteData.userVotes[userId] = voterInfo;
               }
             } else {
               voteData.votes[data.option] += 1;
               voteData.votedUsers.push(userId);
-              voteData.userVotes[userId] = {
-                option: data.option,
-                ip: req.socket.remoteAddress,
-                timestamp: moment().toISOString()
-              };
+              voteData.userVotes[userId] = voterInfo;
             }
             await writeVoteData(voteData);
 
-            // 单独通知投票用户
+            // 单独通知投票用户，包含详细信息
             ws.send(JSON.stringify({
               type: 'voteUpdate',
               data: {
@@ -242,11 +246,11 @@ const setupWebSocket = (server) => {
                 options: voteData.options,
                 votes: voteData.votes,
                 hasVoted: true,
-                userVote: data.option
+                userVote: voterInfo
               }
             }));
 
-            // 广播给其他客户端（排除当前投票用户）
+            // 广播给其他客户端（不含投票人信息）
             updateAndBroadcast(ws);
             break;
 
@@ -286,6 +290,69 @@ router.get('/votes/history', async (req, res) => {
   }
 });
 
+// 获取所有投票者信息（支持分页和日期过滤）
+const getAllVotersInfo = async (page = 1, pageSize = 10, filterDate = null) => {
+  try {
+    // 获取当前投票数据
+    const currentVoteData = await readVoteData();
+    const currentVoters = Object.entries(currentVoteData.userVotes).map(([userId, voteInfo]) => ({
+      userId,
+      date: currentVoteData.date,
+      ...voteInfo
+    }));
+
+    // 获取历史投票数据
+    const history = await readVoteHistory();
+    const historyVoters = history.flatMap(historicalData => 
+      Object.entries(historicalData.userVotes).map(([userId, voteInfo]) => ({
+        userId,
+        date: historicalData.date,
+        ...voteInfo
+      }))
+    );
+
+    // 合并当前和历史投票者信息
+    let allVoters = [...currentVoters, ...historyVoters];
+
+    // 按日期过滤
+    if (filterDate) {
+      const formattedFilterDate = moment(filterDate).format('YYYY-MM-DD');
+      allVoters = allVoters.filter(voter => voter.date === formattedFilterDate);
+    }
+
+    // 按时间排序（最新的在前）
+    allVoters.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    // 分页
+    const total = allVoters.length;
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    const paginatedVoters = allVoters.slice(start, end);
+
+    return {
+      voters: paginatedVoters,
+      total,
+    };
+  } catch (err) {
+    console.error('获取投票者信息失败:', err);
+    throw err;
+  }
+};
+// REST API 用于获取投票者信息（支持分页和日期过滤）
+router.get('/voters', async (req, res) => {
+  try {
+    const { page = 1, pageSize = 10, date } = req.query; // 获取查询参数
+    const votersInfo = await getAllVotersInfo(
+      parseInt(page, 10),
+      parseInt(pageSize, 10),
+      date || null
+    );
+    res.json(votersInfo);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: '服务器错误' });
+  }
+});
 module.exports = {
   router,
   setupWebSocket

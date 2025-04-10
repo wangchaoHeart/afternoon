@@ -8,11 +8,12 @@
   "votes": {
     "2": 0,
     "3": 1,
-    "8": 1
+    "8": 2
   },
   "votedUsers": [
     "4d2f9de3-860c-48c8-b409-c09de633b1f0",
-    null
+    null,
+    "a52831f9-27bb-40d7-be5b-fe89a4c41054"
   ],
   "userVotes": {
     "4d2f9de3-860c-48c8-b409-c09de633b1f0": {
@@ -24,6 +25,15 @@
       "option": "3",
       "ip": "::1",
       "timestamp": "2025-04-10T09:04:32.756Z"
+    },
+    "a52831f9-27bb-40d7-be5b-fe89a4c41054": {
+      "option": "8",
+      "ip": "::1",
+      "timestamp": "2025-04-10T09:34:50.964Z",
+      "browser": "Chrome 134.0.0.0",
+      "os": "macOS 10.15.7",
+      "device": "Macintosh",
+      "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
     }
   }
 }
