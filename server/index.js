@@ -10,10 +10,6 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // 中间件
-app.use(cors({
-  origin: 'http://localhost:8000', // UmiJS 默认端口
-  credentials: true
-}));
 app.use(express.json());
 app.use(cookieParser());
 
@@ -42,3 +38,5 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`服务器运行在端口 ${PORT}`);
 });
+
+module.exports = app;
