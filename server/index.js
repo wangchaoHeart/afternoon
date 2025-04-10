@@ -7,7 +7,7 @@ const voteSystem = require('./routes/api'); // 修改为新的导出名称
 
 // 初始化 Express 应用
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8080;
 
 // 创建 HTTP 服务器
 const server = http.createServer(app);
