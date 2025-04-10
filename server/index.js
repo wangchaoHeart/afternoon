@@ -1,13 +1,16 @@
 const express = require('express');
-const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const fs = require('fs');
 const path = require('path');
-const apiRoutes = require('./routes/api');
+const http = require('http'); // 添加 http 模块
+const voteSystem = require('./routes/api'); // 修改为新的导出名称
 
 // 初始化 Express 应用
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// 创建 HTTP 服务器
+const server = http.createServer(app);
 
 // 中间件
 app.use(express.json());
@@ -19,23 +22,28 @@ if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
-const distDir = path.join(__dirname, './dist'); // 假设 dist 文件夹在项目根目录
-app.use(express.static(distDir)); // 提供静态文件服务
+// 提供静态文件服务
+const distDir = path.join(__dirname, './dist');
+app.use(express.static(distDir));
 
 // 路由
-app.use('/api', apiRoutes);
+app.use('/api', voteSystem.router); // 使用 voteSystem.router
+
+// 设置 WebSocket
+voteSystem.setupWebSocket(server); // 初始化 WebSocket
 
 // 处理前端路由：将所有未匹配的路由指向 index.html
 app.get('*', (req, res) => {
   const indexPath = path.join(distDir, 'index.html');
   if (fs.existsSync(indexPath)) {
-    res.sendFile(indexPath); // 返回前端的 index.html
+    res.sendFile(indexPath);
   } else {
     res.status(404).send('前端构建文件未找到，请先构建前端项目');
   }
 });
+
 // 启动服务器
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`服务器运行在端口 ${PORT}`);
 });
 

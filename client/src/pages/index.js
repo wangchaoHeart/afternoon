@@ -12,28 +12,25 @@ export default function IndexPage() {
     options, 
     votes, 
     hasVoted, 
+    userVote,
     loading, 
     addOption, 
     vote, 
-    initFromServer, 
+    connectWebSocket, 
     deleteOption, 
     voteHistory, 
     fetchVoteHistory,
   } = useModel('vote');
   
   const [newOption, setNewOption] = useState('');
-  const [selectedOption, setSelectedOption] = useState('');
+  const [selectedOption, setSelectedOption] = useState(userVote || '');
   const [activeTab, setActiveTab] = useState('1');
   const [historyLoading, setHistoryLoading] = useState(false);
 
   useEffect(() => {
-    // 初始化当天数据
-    initFromServer();
-    
-
+    connectWebSocket();
   }, []);
 
-  // 当切换到历史标签页时加载历史数据
   useEffect(() => {
     if (activeTab === '2' && (!voteHistory || voteHistory.length === 0)) {
       loadHistory();
@@ -46,36 +43,27 @@ export default function IndexPage() {
     setHistoryLoading(false);
   };
 
-  const handleAddOption = async () => {
+  const handleAddOption = () => {
     if (!newOption.trim()) {
       message.warning('选项不能为空');
       return;
     }
-    
-    const success = await addOption(newOption.trim());
-    if (success) {
-      setNewOption('');
-      message.success('添加选项成功');
-    }
+    addOption(newOption.trim());
+    setNewOption('');
   };
 
-  const handleVote = async () => {
+  const handleVote = () => {
     if (!selectedOption) {
       message.warning('请选择一个选项');
       return;
     }
-    
-    await vote(selectedOption);
+    vote(selectedOption);
   };
 
-  const handleDeleteOption = async (option) => {
-    const success = await deleteOption(option);
-    if (success) {
-      message.success('删除选项成功');
-      // 如果删除的是当前选中的选项，清空选择
-      if (selectedOption === option) {
-        setSelectedOption('');
-      }
+  const handleDeleteOption = (option) => {
+    deleteOption(option);
+    if (selectedOption === option) {
+      setSelectedOption('');
     }
   };
 
@@ -212,9 +200,7 @@ export default function IndexPage() {
               month: 'long', 
               day: 'numeric' 
             });
-            
             const totalVotes = Object.values(item.votes).reduce((sum, count) => sum + Number(count), 0);
-            
             return (
               <List.Item className={styles.historyItem}>
                 <Title level={4}>{dateStr}</Title>

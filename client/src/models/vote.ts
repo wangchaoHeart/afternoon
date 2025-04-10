@@ -1,90 +1,90 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { message } from 'antd';
-import { 
-  getVoteData, 
-  addOption as apiAddOption, 
-  submitVote, 
-  deleteOption as apiDeleteOption,
-  getVoteHistory as apiGetVoteHistory,
-} from '@/services/api';
+import { getVoteHistory } from '@/services/api';
 
 export default () => {
   const [options, setOptions] = useState([]);
   const [votes, setVotes] = useState({});
   const [hasVoted, setHasVoted] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [userVote, setUserVote] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [voteHistory, setVoteHistory] = useState([]);
+  const [ws, setWs] = useState(null);
 
-  // 从后端获取数据
-  const initFromServer = async () => {
-    setLoading(true);
-    try {
-      const data = await getVoteData();
-      setOptions(data.options);
-      setVotes(data.votes);
-      setHasVoted(data.hasVoted);
-    } catch (error) {
-      console.error('获取数据失败:', error);
-      message.error('获取数据失败，请刷新页面重试');
-    } finally {
+  const connectWebSocket = () => {
+    const websocket = new WebSocket(`ws://${window.location.host}`);
+    setWs(websocket);
+
+    websocket.onopen = () => {
+      console.log('WebSocket 连接已建立');
       setLoading(false);
+    };
+
+    websocket.onmessage = (event) => {
+      const { type, data, message: errorMessage } = JSON.parse(event.data);
+      console.log('收到 WebSocket 消息:', { type, data }); // 调试日志
+      switch (type) {
+        case 'init':
+          setOptions(data.options);
+          setVotes(data.votes);
+          setHasVoted(data.hasVoted);
+          setUserVote(data.userVote);
+          break;
+        case 'voteUpdate':
+          setOptions(data.options);
+          setVotes(data.votes);
+          if (data.hasVoted !== undefined) { // 投票成功的消息包含 hasVoted
+            setHasVoted(data.hasVoted);
+            setUserVote(data.userVote);
+          }
+          break;
+        case 'error':
+          message.error(errorMessage);
+          break;
+        default:
+          console.warn('未知消息类型:', type);
+      }
+    };
+
+    websocket.onerror = (error) => {
+      console.error('WebSocket 错误:', error);
+      message.error('连接服务器失败');
+      setLoading(false);
+    };
+
+    websocket.onclose = () => {
+      console.log('WebSocket 连接已关闭');
+      setLoading(false);
+    };
+  };
+
+  const addOption = (option) => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'addOption', data: { option } }));
+    } else {
+      message.error('未连接到服务器');
     }
   };
 
-  // 添加新选项
-  const addOption = async (option) => {
-    setLoading(true);
-    try {
-      const response = await apiAddOption(option);
-      setOptions(response.options);
-      return true;
-    } catch (error) {
-      console.error('添加选项失败:', error);
-      message.error(error.data?.message || '添加选项失败');
-      return false;
-    } finally {
-      setLoading(false);
+  const vote = (option) => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'vote', data: { option } }));
+    } else {
+      message.error('未连接到服务器');
     }
   };
 
-  // 投票
-  const vote = async (option) => {
-    setLoading(true);
-    try {
-      const response = await submitVote(option);
-      setVotes(response.votes);
-      setHasVoted(response.hasVoted);
-      return true;
-    } catch (error) {
-      console.error('投票失败:', error);
-      message.error(error.data?.message || '投票失败');
-      return false;
-    } finally {
-      setLoading(false);
+  const deleteOption = (option) => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'deleteOption', data: { option } }));
+    } else {
+      message.error('未连接到服务器');
     }
   };
 
-  // 删除选项
-  const deleteOption = async (option) => {
-    setLoading(true);
-    try {
-      const response = await apiDeleteOption(option);
-      setOptions(response.options);
-      setVotes(response.votes);
-      return true;
-    } catch (error) {
-      console.error('删除选项失败:', error);
-      message.error(error.data?.message || '删除选项失败');
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 获取投票历史
   const fetchVoteHistory = async () => {
     try {
-      const response = await apiGetVoteHistory();
+      const response = await getVoteHistory();
       setVoteHistory(response.history);
       return true;
     } catch (error) {
@@ -94,17 +94,24 @@ export default () => {
     }
   };
 
-
+  useEffect(() => {
+    return () => {
+      if (ws) {
+        ws.close();
+      }
+    };
+  }, [ws]);
 
   return {
     options,
     votes,
     hasVoted,
+    userVote,
     loading,
     voteHistory,
     addOption,
     vote,
-    initFromServer,
+    connectWebSocket,
     deleteOption,
     fetchVoteHistory,
   };
