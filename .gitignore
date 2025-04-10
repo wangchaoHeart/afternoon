@@ -1,7 +1,6 @@
 .DS_Store
 
 .history 
-dist
 node_modules
 .umi/
 .umi-production/
